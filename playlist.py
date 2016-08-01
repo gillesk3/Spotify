@@ -146,7 +146,7 @@ class Playlist:
         update = False
         for arg in args:
             if arg == '-u':
-                print 'Updating %s' % self.playlistID
+                print 'Updating1 %s' % self.playlistID
                 loadMethod()
                 update = True
 
@@ -156,7 +156,7 @@ class Playlist:
                 if self.playlistID == load.playlistID and self.username == load.username:
                     now = datetime.datetime.now()
                     if not hasattr(load,'updateTime'):
-                        print 'Updating %s' % self.playlistID
+                        print 'Updating2 %s' % self.playlistID
                         loadMethod()
                         return
 
@@ -164,11 +164,11 @@ class Playlist:
                         self.tracks = load.tracks
                         self.updateTime = load.updateTime
                     else:
-                        print 'Updating %s' % self.playlistID
+                        print 'Updating3 %s' % self.playlistID
                         loadMethod()
 
             else:
-                print 'Updating %s' % self.playlistID
+                print 'Updating4 %s' % self.playlistID
                 loadMethod()
 
     def setSongs(self,response):
@@ -178,8 +178,9 @@ class Playlist:
             tracks.append(Song(song))
         return tracks
 
+    @staticmethod
     def listID(tracks):
-        return {tracks[i].ID for i in range(0,len(tracks)))
+        return [tracks[i].ID for i in range(0,len(tracks))]
 
     def removeSongs(self):
         trackIDs = [self.tracks[i].ID for i in range(0,len(self)) ]
@@ -192,12 +193,11 @@ class Playlist:
     def addSongs(songs, username, playlists):
         listArg = type(playlists) is list
         if listArg:
-            currentTracks = playlists[0].tracks
-            backupTracks = playlists[1].tracks
+            currentTracks = Playlist.listID(playlists[0].tracks)
+            backupTracks = Playlist.listID(playlists[1].tracks)
             newTracks = []
             for song in songs:
-                if not song in currentTracks and not song in backupTracks:
-                    print song
+                if not song.ID in currentTracks and not song.ID in backupTracks:
                     newTracks.append(song.ID)
             if len(newTracks) > 0:
                 generator = Playlist.chunks(newTracks,100)
@@ -207,10 +207,10 @@ class Playlist:
             print 'Added %d Songs To Playlist' % len(newTracks)
             return len(newTracks)
         else:
-            currentTracks = playlists.tracks
+            currentTracks =  Playlist.listID(playlists.tracks)
             newTracks = []
             for song in songs:
-                if not song in currentTracks:
+                if not song.ID in currentTracks:
                     newTracks.append(song.ID)
             if len(newTracks) > 0:
                 generator = Playlist.chunks(newTracks,100)
@@ -337,37 +337,6 @@ class SavedMusic(Playlist):
         self.tracks = tracks
         self.updateTime = datetime.datetime.now()
 
-
-def trackIDs(response): #returns a list of ids from a playlist
-    allSongs = response['items']
-    #print allSongs[70]
-    trackIDs = []
-    for song in allSongs:
-        trackID = songID(song)
-        trackIDs.append(trackID)
-    return set(trackIDs)
-
-def addSongs(songs, playist1, playlist2):
-    currentTracks = playlist1.tracks
-    backupTracks = playlist2.tracks
-    newTracks = []
-    for song in songs:
-        if not song in currentTracks and not song in backupTracks:
-            newTracks.append(song.ID)
-
-    if len(newTracks) > 0:
-        generator = chunks(newTracks,100)
-        for tracks in generator:
-            sp.user_playlist_add_tracks(username,playlistID1, tracks)
-            sp.user_playlist_add_tracks(username,playlistID2, tracks)
-    return len(newTracks)
-
-def addUniqueMusic(playlistName):
-    uniqueMusic = getUniqueMusic()
-    playlistIDs = Playlist.getPlaylistID(username, playlistName)
-    count = addSongs(uniqueMusic, playlistIDs[0], playlistIDs[1])
-    print "Added %d Songs to %s Playlist" % (count,playList1)
-
 scope = 'playlist-modify-private playlist-read-private user-library-modify'
 playlistScope = "playlist-read-private"
 playlistName = "Discovery"
@@ -375,9 +344,8 @@ playlistID = "6zQFlEHoqDHEihRaMlpYII"
 clientID = '8ae602371cbf4a5db0686edc39461846'
 clientSecret = '4748666c10224174bb07af8750f2a2c0'
 redirectURL = 'http://localhost:8888/callback'
-#ID = '2Uu7Sono1hadCjiy298ldx'
-ID = '7MpBAMBCffGkjdcuzTzdbO'
-backupID = '1yMx3Htp4UCBPLpwdVRyLX'
+ID = '49niFlFjCkFW6Jfoznfgjd'
+backupID = '3O6UY6UxEZ47aWuGn6s58o'
 trackFields = 'next, items(track(name, id, artists(name,id), album(id, name)))'
 if len(sys.argv) > 1:
     username = sys.argv[1]
@@ -390,11 +358,10 @@ token = util.prompt_for_user_token(username, scope, clientID, clientSecret, redi
 if token:
     sp = spotipy.Spotify(auth=token)
     #t = sp.user_playlist_tracks(username, ID, trackFields, 1, 0 )
-    play = Playlist(username=username, playlistID=ID)
+    play = Playlist(username=username, playlistID = ID)
     saved = SavedMusic(username=username)
     backup = Playlist(username= username, playlistID = backupID)
-    print Playlist.addSongs(saved.uniqueTracks, username, [play,backup])
-    #print saved.tracks[0]
+    Playlist.addSongs(saved.uniqueTracks, username, [play,backup])
     play.savePlaylist()
     saved.savePlaylist()
     backup.savePlaylist()
