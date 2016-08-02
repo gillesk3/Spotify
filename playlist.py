@@ -192,6 +192,7 @@ class Playlist:
     @staticmethod
     def addSongs(songs, username, playlists):
         listArg = type(playlists) is list
+        position = 0
         if listArg:
             currentTracks = Playlist.listID(playlists[0].tracks)
             backupTracks = Playlist.listID(playlists[1].tracks)
@@ -202,8 +203,10 @@ class Playlist:
             if len(newTracks) > 0:
                 generator = Playlist.chunks(newTracks,100)
                 for tracks in generator:
-                    sp.user_playlist_add_tracks(username,playlists[0].playlistID, tracks)
-                    sp.user_playlist_add_tracks(username,playlists[1].playlistID, tracks)
+                    sp.user_playlist_add_tracks(username,playlists[0].playlistID, tracks, position)
+                    sp.user_playlist_add_tracks(username,playlists[1].playlistID, tracks, position)
+            for playlist in playlists:
+                playlist.getPlaylistSongs();
             print 'Added %d Songs To Playlist' % len(newTracks)
             return len(newTracks)
         else:
@@ -215,7 +218,8 @@ class Playlist:
             if len(newTracks) > 0:
                 generator = Playlist.chunks(newTracks,100)
                 for tracks in generator:
-                    sp.user_playlist_add_tracks(username,playlists.playlistID, tracks)
+                    sp.user_playlist_add_tracks(username,playlists.playlistID, tracks, position)
+            playlists.getPlaylistSongs();
             print 'Added %d Songs To Playlist' % len(newTracks)
             return len(newTracks)
 
