@@ -260,8 +260,22 @@ class Playlist:
     def getPlaylistID(username, playlistName):#
         playlistIDs = Playlist.loadIDs()
         if playlistIDs:
-            if playlistName in playlistIDs:
-                return playlistIDs[playlistName]
+            if type(playlistName) is list:
+                print 'wpw'
+                playlistID = []
+                fAll = []
+                for name in playlistName:
+                    if name in playlistIDs:
+                        fAll.append(True)
+                        playlistID.append(playlistIDs[name])
+                    else: fAll.append(False)
+                if all(fAll):
+                    print len(playlistName)
+                    return playlistIDs
+
+            else :
+                if playlistName in playlistIDs:
+                    return playlistIDs[playlistName]
 
         response = sp.user_playlists(username)
         playlists = response['items']
@@ -340,6 +354,32 @@ class Playlist:
         with open(fle, 'w+') as output:
             pickle.dump(playlistIDs, output, pickle.HIGHEST_PROTOCOL)
 
+    @staticmethod
+    def removeIDs(playlistName):
+        directory = './resources'
+        fle = directory + '/ids.pkl'
+        if not os.path.isfile(fle):
+            return False
+        if type(playlistName) is list:
+            playlists = None
+            with open(fle, 'rb') as input:
+                playlists = pickle.load(input)
+            for name in playlistName:
+                if name in playlists:
+                    del playlists[name]
+            with open(fle, 'w+') as output:
+                pickle.dump(playlists, output, pickle.HIGHEST_PROTOCOL)
+        else:
+            playlists = None
+            with open(fle, 'rb') as input:
+                playlists = pickle.load(input)
+
+            if playlistName in playlists:
+                del playlists[playlistName]
+            with open(fle, 'w+') as output:
+                pickle.dump(playlists, output, pickle.HIGHEST_PROTOCOL)
+
+
     def loadPlaylist(self):
         directory = './resources'
         if not os.path.exists(directory):
@@ -405,7 +445,8 @@ token = util.prompt_for_user_token(username, scope, clientID, clientSecret, redi
 
 if token:
     sp = spotipy.Spotify(auth=token)
-    #Playlist.getPlaylistID(username,['Discovery','Backup'])
+    #Playlist.getPlaylistID(username,['Test'])
+    Playlist.removeIDs('Test')
     print Playlist.loadIDs()
     #t = sp.user_playlist_tracks(username, ID, trackFields, 1, 0 )
     # play = Playlist(username=username, playlistID = ID)
