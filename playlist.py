@@ -8,6 +8,7 @@ import cPickle as pickle
 import datetime
 import os.path
 import getopt
+import json
 
 class Song:
 
@@ -257,6 +258,11 @@ class Playlist:
 
     @staticmethod
     def getPlaylistID(username, playlistName):#
+        playlistIDs = Playlist.loadIDs()
+        if playlistIDs:
+            if playlistName in playlistIDs:
+                return playlistIDs[playlistName]
+
         response = sp.user_playlists(username)
         playlists = response['items']
         playlistID = []
@@ -297,7 +303,42 @@ class Playlist:
                     playlistID = newPlaylist['id']
                     print "Created Playlist: %s" % playlistName
             i += 1
+        if type(playlistID) is list:
+            i = 0
+            for ID in playlistID:
+                Playlist.saveIDs({playlistName[i]:ID})
+                i +=1
+        else: Playlist.saveIDs({playlistName: playlistID})
         return playlistID
+
+    @staticmethod
+    def loadIDs():
+        directory = './resources'
+        fle = directory + '/ids.pkl'
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            return False
+        elif os.path.isfile(fle):
+            with open(fle, 'rb') as input:
+                playlistIDs = pickle.load(input)
+            return playlistIDs
+        else: return False
+
+    @staticmethod
+    def saveIDs(playlistIDs):
+        directory = './resources'
+        fle = directory + '/ids.pkl'
+        temp = None
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        if os.path.isfile(fle):
+            with open(fle, 'rb') as input:
+                temp = pickle.load(input)
+        if type(temp) is dict:
+            temp.update(playlistIDs)
+            playlistIDs = temp
+        with open(fle, 'w+') as output:
+            pickle.dump(playlistIDs, output, pickle.HIGHEST_PROTOCOL)
 
     def loadPlaylist(self):
         directory = './resources'
@@ -341,6 +382,9 @@ class SavedMusic(Playlist):
         self.tracks = tracks
         self.updateTime = datetime.datetime.now()
 
+
+
+
 scope = 'playlist-modify-private playlist-read-private user-library-modify'
 playlistScope = "playlist-read-private"
 playlistName = "Discovery"
@@ -361,14 +405,16 @@ token = util.prompt_for_user_token(username, scope, clientID, clientSecret, redi
 
 if token:
     sp = spotipy.Spotify(auth=token)
+    #Playlist.getPlaylistID(username,['Discovery','Backup'])
+    print Playlist.loadIDs()
     #t = sp.user_playlist_tracks(username, ID, trackFields, 1, 0 )
-    play = Playlist(username=username, playlistID = ID)
-    saved = SavedMusic(username=username)
-    backup = Playlist(username= username, playlistID = backupID)
-    Playlist.addSongs(saved.uniqueTracks, username, [play,backup])
-    play.savePlaylist()
-    saved.savePlaylist()
-    backup.savePlaylist()
+    # play = Playlist(username=username, playlistID = ID)
+    # saved = SavedMusic(username=username)
+    # backup = Playlist(username= username, playlistID = backupID)
+    # Playlist.addSongs(saved.uniqueTracks, username, [play,backup])
+    # play.savePlaylist()
+    # saved.savePlaylist()
+    # backup.savePlaylist()
 
 
 
