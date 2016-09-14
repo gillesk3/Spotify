@@ -474,7 +474,6 @@ else:
     sys.exit()
 
 
-print sameUser
 
 for arg in args:
     if arg == '-a':
@@ -486,7 +485,6 @@ if not sameUser:
     token = getToken(outh)
 else:
     token = outh.get_cached_token()['access_token']
-    print token
 
 if token:
     sp = spotipy.Spotify(auth=token)
