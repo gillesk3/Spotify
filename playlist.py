@@ -1,13 +1,16 @@
-#scope user-library-modify playlist-modify-private
-# 6G23TUJfaVNiHtWuscuudF
 import sys
 import spotipy
 import spotipy.util as util
+import spotipy.oauth2 as oauth2
 import requests
 import cPickle as pickle
 import datetime
 import os.path
 import getopt
+import json
+import selenium
+from selenium import webdriver
+import time
 
 class Song:
 
@@ -101,7 +104,6 @@ class Song:
                     artistID = artistInfo['id']
                     artistIDList.append(artistID)
             return artistIDList
-
 
 class Playlist:
     trackFields = 'next, items(track(name, id, artists(name,id), album(id, name)))'
@@ -256,7 +258,24 @@ class Playlist:
         return music
 
     @staticmethod
-    def getPlaylistID(username, playlistName):#
+    def getPlaylistID(username, playlistName):
+        playlistIDs = Playlist.loadIDs(username)
+        if playlistIDs:
+            if type(playlistName) is list:
+                playlistID = []
+                fAll = []
+                for name in playlistName:
+                    if name in playlistIDs:
+                        fAll.append(True)
+                        playlistID.append(playlistIDs[name])
+                    else: fAll.append(False)
+                if all(fAll):
+                    return playlistIDs
+
+            else :
+                if playlistName in playlistIDs:
+                    return playlistIDs[playlistName]
+
         response = sp.user_playlists(username)
         playlists = response['items']
         playlistID = []
@@ -297,7 +316,67 @@ class Playlist:
                     playlistID = newPlaylist['id']
                     print "Created Playlist: %s" % playlistName
             i += 1
+        if type(playlistID) is list:
+            i = 0
+            for ID in playlistID:
+                Playlist.saveIDs(username, {playlistName[i]:ID})
+                i +=1
+        else: Playlist.saveIDs(username, {playlistName: playlistID})
         return playlistID
+
+    @staticmethod
+    def loadIDs(username):
+        directory = './resources'
+        fle = directory + '/%sIDs.pkl' % username
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            return False
+        elif os.path.isfile(fle):
+            with open(fle, 'rb') as input:
+                playlistIDs = pickle.load(input)
+            return playlistIDs
+        else: return False
+
+    @staticmethod
+    def saveIDs(username, playlistIDs):
+        directory = './resources'
+        fle = directory + '/%sIDs.pkl' % username
+        temp = None
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        if os.path.isfile(fle):
+            with open(fle, 'rb') as input:
+                temp = pickle.load(input)
+        if type(temp) is dict:
+            temp.update(playlistIDs)
+            playlistIDs = temp
+        with open(fle, 'w+') as output:
+            pickle.dump(playlistIDs, output, pickle.HIGHEST_PROTOCOL)
+
+    @staticmethod
+    def removeIDs(username, playlistName):
+        directory = './resources'
+        fle = directory + '/%sIDs.pkl' % username
+        if not os.path.isfile(fle):
+            return False
+        if type(playlistName) is list:
+            playlists = None
+            with open(fle, 'rb') as input:
+                playlists = pickle.load(input)
+            for name in playlistName:
+                if name in playlists:
+                    del playlists[name]
+            with open(fle, 'w+') as output:
+                pickle.dump(playlists, output, pickle.HIGHEST_PROTOCOL)
+        else:
+            playlists = None
+            with open(fle, 'rb') as input:
+                playlists = pickle.load(input)
+
+            if playlistName in playlists:
+                del playlists[playlistName]
+            with open(fle, 'w+') as output:
+                pickle.dump(playlists, output, pickle.HIGHEST_PROTOCOL)
 
     def loadPlaylist(self):
         directory = './resources'
@@ -318,7 +397,6 @@ class Playlist:
         """Yield successive n-sized chunks from l."""
         for i in xrange(0, len(l), n):
             yield l[i:i+n]
-
 
 class SavedMusic(Playlist):
 
@@ -341,37 +419,89 @@ class SavedMusic(Playlist):
         self.tracks = tracks
         self.updateTime = datetime.datetime.now()
 
+def apiURL(newUser):
+    data = {'scope': 'playlist-modify-private playlist-read-private user-library-modify',
+            'redirect_uri':'http://localhost:8888/callback',
+            'response_type':'code',
+            'client_id': '8ae602371cbf4a5db0686edc39461846',
+            'show_dialog': newUser
+            }
+
+    r = requests.get('https://accounts.spotify.com/authorize/', params=data)
+    return r.url
+
+def browser(url):
+    driver = webdriver.Firefox()
+    driver.get(url)
+    while url[:10] == driver.current_url[:10]: time.sleep(0.2)
+    response = driver.current_url
+    driver.quit()
+    return response
+
+def getUsername(username):
+    directory = './resources'
+    fle = directory + '/username.pkl'
+    sameUser = False
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    elif os.path.isfile(fle):
+        with open(fle, 'rb') as input:
+            prevUsername = pickle.load(input)
+        sameUser = username == prevUsername
+    with open(fle, 'w+') as output:
+        pickle.dump(username, output, pickle.HIGHEST_PROTOCOL)
+    return sameUser
+
+def getToken(outh):
+    print 'Authenticating User'
+    url = apiURL(True)
+    response = browser(url)
+    code = outh.parse_response_code(response)
+    return outh.get_access_token(code)['access_token']
+
+sameUser = False
 scope = 'playlist-modify-private playlist-read-private user-library-modify'
-playlistScope = "playlist-read-private"
-playlistName = "Discovery"
-playlistID = "6zQFlEHoqDHEihRaMlpYII"
 clientID = '8ae602371cbf4a5db0686edc39461846'
 clientSecret = '4748666c10224174bb07af8750f2a2c0'
 redirectURL = 'http://localhost:8888/callback'
-ID = '49niFlFjCkFW6Jfoznfgjd'
-backupID = '3O6UY6UxEZ47aWuGn6s58o'
-trackFields = 'next, items(track(name, id, artists(name,id), album(id, name)))'
+outh = oauth2.SpotifyOAuth(clientID,clientSecret,redirectURL,scope=scope,cache_path='./resources/token')
+args = sys.argv[1:]
+
 if len(sys.argv) > 1:
     username = sys.argv[1]
+    sameUser = getUsername(username)
 else:
     print "Usage: %s username" % (sys.argv[0],)
     sys.exit()
 
-token = util.prompt_for_user_token(username, scope, clientID, clientSecret, redirectURL)
+for arg in args:
+    if arg == '-a':
+        token = getToken(outh)
+        sameUser = True
+
+
+if not sameUser:
+    token = getToken(outh)
+else:
+    cached_token = outh.get_cached_token()
+    if cached_token:
+        token = cached_token['access_token']
+    else: token = getToken(outh)
 
 if token:
     sp = spotipy.Spotify(auth=token)
-    #t = sp.user_playlist_tracks(username, ID, trackFields, 1, 0 )
-    play = Playlist(username=username, playlistID = ID)
-    saved = SavedMusic(username=username)
-    backup = Playlist(username= username, playlistID = backupID)
-    Playlist.addSongs(saved.uniqueTracks, username, [play,backup])
-    play.savePlaylist()
-    saved.savePlaylist()
-    backup.savePlaylist()
+    Playlist.getPlaylistID(username, ['Discovery', 'Backup'])
+    playlistIDs = Playlist.loadIDs(username)
+    if not playlistIDs:
+        pass
+    else:
+        play = Playlist(username=username, playlistID = playlistIDs['Discovery'])
+        saved = SavedMusic(username=username)
+        backup = Playlist(username= username, playlistID = playlistIDs['Backup'])
 
-
-
-
+        Playlist.addSongs(saved.uniqueTracks, username, [play,backup])
+        play.savePlaylist()
+        saved.savePlaylist()
+        backup.savePlaylist()
 else:
     print "Can't get token for", username
