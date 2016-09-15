@@ -453,10 +453,11 @@ def getUsername(username):
     return sameUser
 
 def getToken(outh):
+    print 'Authenticating User'
     url = apiURL(True)
     response = browser(url)
     code = outh.parse_response_code(response)
-    return outh.get_access_token(code)
+    return outh.get_access_token(code)['access_token']
 
 sameUser = False
 scope = 'playlist-modify-private playlist-read-private user-library-modify'
@@ -473,18 +474,19 @@ else:
     print "Usage: %s username" % (sys.argv[0],)
     sys.exit()
 
-
-
 for arg in args:
     if arg == '-a':
-        print 'Authenticating User'
         token = getToken(outh)
         sameUser = True
+
 
 if not sameUser:
     token = getToken(outh)
 else:
-    token = outh.get_cached_token()['access_token']
+    cached_token = outh.get_cached_token()
+    if cached_token:
+        token = cached_token['access_token']
+    else: token = getToken(outh)
 
 if token:
     sp = spotipy.Spotify(auth=token)
