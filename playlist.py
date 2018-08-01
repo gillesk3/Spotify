@@ -3,13 +3,14 @@ import spotipy
 import spotipy.util as util
 import spotipy.oauth2 as oauth2
 import requests
-import cPickle as pickle
+import pickle
 import datetime
 import os.path
 import getopt
 import json
-import selenium
-from selenium import webdriver
+# import selenium
+# from selenium import webdriver
+import webbrowser
 import time
 
 class Song:
@@ -121,7 +122,7 @@ class Playlist:
             self.playlistName = args['playlistName']
             self.playlistID = self.getPlaylistID(self.username, self.playlistName)
             self.fle = './resources/' + self.playlistID + '.pkl'
-            print 'Playlist ID is: %s' % self.playlistID
+            print('Playlist ID is: %s' % self.playlistID)
         else:
             self.playlistID = 'SavedMusic'
             self.playListName = 'Saved Music'
@@ -148,17 +149,18 @@ class Playlist:
         update = False
         for arg in args:
             if arg == '-u':
-                print 'Updating1 %s' % self.playlistID
+                print( 'Updating %s' % self.playlistID)
                 loadMethod()
                 update = True
 
 
         if not update:
+            print( 'Updating %s' % self.playlistID)
+
             if load is not None:
                 if self.playlistID == load.playlistID and self.username == load.username:
                     now = datetime.datetime.now()
                     if not hasattr(load,'updateTime'):
-                        print 'Updating2 %s' % self.playlistID
                         loadMethod()
                         return
 
@@ -166,11 +168,9 @@ class Playlist:
                         self.tracks = load.tracks
                         self.updateTime = load.updateTime
                     else:
-                        print 'Updating3 %s' % self.playlistID
                         loadMethod()
 
             else:
-                print 'Updating4 %s' % self.playlistID
                 loadMethod()
 
     def setSongs(self,response):
@@ -209,7 +209,7 @@ class Playlist:
                     sp.user_playlist_add_tracks(username,playlists[1].playlistID, tracks, position)
             for playlist in playlists:
                 playlist.getPlaylistSongs();
-            print 'Added %d Songs To Playlist' % len(newTracks)
+            print( 'Added %d Songs To Playlist' % len(newTracks) )
             return len(newTracks)
         else:
             currentTracks =  Playlist.listID(playlists.tracks)
@@ -222,7 +222,7 @@ class Playlist:
                 for tracks in generator:
                     sp.user_playlist_add_tracks(username,playlists.playlistID, tracks, position)
             playlists.getPlaylistSongs();
-            print 'Added %d Songs To Playlist' % len(newTracks)
+            print( 'Added %d Songs To Playlist' % len(newTracks) )
             return len(newTracks)
 
     @staticmethod
@@ -309,12 +309,12 @@ class Playlist:
                 if not f:
                     newPlaylist = sp.user_playlist_create(username, playlistName[i], False)
                     playlistID.append(newPlaylist['id'])
-                    print "Created Playlist: %s" % playlistName[i]
+                    print( "Created Playlist: %s" % playlistName[i])
             else:
                 if not f:
                     newPlaylist = sp.user_playlist_create(username, playlistName, False)
                     playlistID = newPlaylist['id']
-                    print "Created Playlist: %s" % playlistName
+                    print ("Created Playlist: %s" % playlistName)
             i += 1
         if type(playlistID) is list:
             i = 0
@@ -350,7 +350,7 @@ class Playlist:
         if type(temp) is dict:
             temp.update(playlistIDs)
             playlistIDs = temp
-        with open(fle, 'w+') as output:
+        with open(fle, 'wb') as output:
             pickle.dump(playlistIDs, output, pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
@@ -366,7 +366,7 @@ class Playlist:
             for name in playlistName:
                 if name in playlists:
                     del playlists[name]
-            with open(fle, 'w+') as output:
+            with open(fle, 'wb') as output:
                 pickle.dump(playlists, output, pickle.HIGHEST_PROTOCOL)
         else:
             playlists = None
@@ -375,7 +375,7 @@ class Playlist:
 
             if playlistName in playlists:
                 del playlists[playlistName]
-            with open(fle, 'w+') as output:
+            with open(fle, 'wb') as output:
                 pickle.dump(playlists, output, pickle.HIGHEST_PROTOCOL)
 
     def loadPlaylist(self):
@@ -389,13 +389,13 @@ class Playlist:
         return playlist
 
     def savePlaylist(self):
-        with open(self.fle, 'w+') as output:
+        with open(self.fle, 'wb') as output:
             pickle.dump(self,output, pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
     def chunks(l, n):
         """Yield successive n-sized chunks from l."""
-        for i in xrange(0, len(l), n):
+        for i in range(0, len(l), n):
             yield l[i:i+n]
 
 class SavedMusic(Playlist):
@@ -420,7 +420,7 @@ class SavedMusic(Playlist):
         self.updateTime = datetime.datetime.now()
 
 def apiURL(newUser):
-    data = {'scope': 'playlist-modify-private playlist-read-private user-library-modify',
+    data = {'scope': 'playlist-modify-private playlist-read-private user-library-modify user-library-read',
             'redirect_uri':'http://localhost:8888/callback',
             'response_type':'code',
             'client_id': '8ae602371cbf4a5db0686edc39461846',
@@ -431,12 +431,13 @@ def apiURL(newUser):
     return r.url
 
 def browser(url):
-    driver = webdriver.Firefox()
-    driver.get(url)
-    while url[:10] == driver.current_url[:10]: time.sleep(0.2)
-    response = driver.current_url
-    driver.quit()
-    return response
+    pass
+    # driver = webdriver.Firefox()
+    # driver.get(url)
+    # while url[:10] == driver.current_url[:10]: time.sleep(0.2)
+    # response = driver.current_url
+    # driver.quit()
+    # return response
 
 def getUsername(username):
     directory = './resources'
@@ -448,21 +449,26 @@ def getUsername(username):
         with open(fle, 'rb') as input:
             prevUsername = pickle.load(input)
         sameUser = username == prevUsername
-    with open(fle, 'w+') as output:
-        pickle.dump(username, output, pickle.HIGHEST_PROTOCOL)
+
+    pickle.dump(username, open( fle, "wb" ))
+
+    # with open(fle, 'wb') as output:
+    #     print(type(username))
+
     return sameUser
 
 def getToken(outh):
-    print 'Authenticating User'
+    print( 'Authenticating User')
     url = apiURL(True)
-    response = browser(url)
+    webbrowser.open_new(url)
+    response = input('Enter url here: ')
     code = outh.parse_response_code(response)
     return outh.get_access_token(code)['access_token']
 
 sameUser = False
-scope = 'playlist-modify-private playlist-read-private user-library-modify'
-clientID = '8ae602371cbf4a5db0686edc39461846'
-clientSecret = '4748666c10224174bb07af8750f2a2c0'
+scope = 'playlist-modify-private playlist-read-private user-library-modify user-library-read'
+clientID = ''
+clientSecret = ''
 redirectURL = 'http://localhost:8888/callback'
 outh = oauth2.SpotifyOAuth(clientID,clientSecret,redirectURL,scope=scope,cache_path='./resources/token')
 args = sys.argv[1:]
@@ -471,7 +477,7 @@ if len(sys.argv) > 1:
     username = sys.argv[1]
     sameUser = getUsername(username)
 else:
-    print "Usage: %s username" % (sys.argv[0],)
+    print( "Usage: %s username" % (sys.argv[0],))
     sys.exit()
 
 for arg in args:
@@ -504,4 +510,4 @@ if token:
         saved.savePlaylist()
         backup.savePlaylist()
 else:
-    print "Can't get token for", username
+    print("Can't get token for", username)
