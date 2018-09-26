@@ -439,6 +439,7 @@ def browser(url):
     # driver.quit()
     # return response
 
+# Checks if username is already found
 def getUsername(username):
     directory = './resources'
     fle = directory + '/username.pkl'
@@ -463,15 +464,20 @@ def getToken(outh):
     webbrowser.open_new(url)
     response = input('Enter url here: ')
     code = outh.parse_response_code(response)
-    return outh.get_access_token(code)['access_token']
+    try:
+        return outh.get_access_token(code)['access_token']
+    except Exception as e:
+        return None
+
 
 sameUser = False
 scope = 'playlist-modify-private playlist-read-private user-library-modify user-library-read'
-clientID = ''
-clientSecret = ''
+clientID = '8ae602371cbf4a5db0686edc39461846'
+clientSecret = '4748666c10224174bb07af8750f2a2c0'
 redirectURL = 'http://localhost:8888/callback'
 outh = oauth2.SpotifyOAuth(clientID,clientSecret,redirectURL,scope=scope,cache_path='./resources/token')
 args = sys.argv[1:]
+token = None
 
 if len(sys.argv) > 1:
     username = sys.argv[1]
@@ -486,13 +492,14 @@ for arg in args:
         sameUser = True
 
 
-if not sameUser:
-    token = getToken(outh)
-else:
+if sameUser:
     cached_token = outh.get_cached_token()
     if cached_token:
         token = cached_token['access_token']
-    else: token = getToken(outh)
+
+if not token:
+    token = getToken(outh)
+
 
 if token:
     sp = spotipy.Spotify(auth=token)
