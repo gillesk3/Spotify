@@ -2,15 +2,12 @@ import sys
 import spotipy
 import spotipy.util as util
 import spotipy.oauth2 as oauth2
-import requests
 import pickle
 import datetime
-import os.path
 import getopt
 import json
-# import selenium
-# from selenium import webdriver
-import webbrowser
+import os
+
 import time
 
 class Song:
@@ -113,6 +110,7 @@ class Playlist:
 
     def __init__(self,**args):
         self.username = args['username']
+        self.sp = args['sp']
         if 'playlistID' in args:
             self.playlistID = args['playlistID']
             self.fle = './resources/' + self.playlistID + '.pkl'
@@ -131,25 +129,27 @@ class Playlist:
     def __len__(self):
         return len(self.tracks)
 
+    # Gets list of songs in playlist, adds it to self.tracks and updates self.updaeTime
     def getPlaylistSongs(self):
         tracks = []
         limit = 100
         offset = 0
         hasNext = True
         while hasNext:
-            response = sp.user_playlist_tracks(self.username, self.playlistID, self.trackFields, limit, offset )
+            response = self.sp.user_playlist_tracks(self.username, self.playlistID, self.trackFields, limit, offset )
             hasNext = response['next']
             tracks += self.setSongs(response)
             offset += limit
         self.tracks = tracks
         self.updateTime = datetime.datetime.now()
 
+    #  Loads the tracks in the playlist by either checking with spotify api or loading previously cached playlist
     def loadTracks(self, load, loadMethod):
         args = sys.argv[1:]
         update = False
         for arg in args:
             if arg == '-u':
-                print( 'Updating %s' % self.playlistID)
+                print( 'Updating because i was told to %s' % self.playlistID)
                 loadMethod()
                 update = True
 
@@ -173,6 +173,7 @@ class Playlist:
             else:
                 loadMethod()
 
+    # Puts the songs from the spotify query in a tracks list
     def setSongs(self,response):
         tracks = []
         allSongs = response['items']
@@ -180,18 +181,22 @@ class Playlist:
             tracks.append(Song(song))
         return tracks
 
+    # List all the ids of the tracks
     @staticmethod
     def listID(tracks):
         return [tracks[i].ID for i in range(0,len(tracks))]
 
-    def removeSongs(self):
-        trackIDs = [self.tracks[i].ID for i in range(0,len(self)) ]
+    # Removes all songs given from the playlist
+    def removeSongs(self, songs):
+        trackIDs = [songs[i].ID for i in range(0,len(self)) ]
         if len(trackIDs) > 0 :
             generator = Playlist.chunks(trackIDs, 100)
             for tracks in generator:
-                sp.user_playlist_remove_all_occurrences_of_tracks(self.username, self.playlistID, tracks)
+                self.sp.user_playlist_remove_all_occurrences_of_tracks(self.username, self.playlistID, tracks)
+        self.loadTracks(None, self.getPlaylistSongs)
 
-    @staticmethod
+    #  Adds all songs to two playlist, second playlist is to keep a backup so as not to readd songs the user removed
+    # @staticmethod
     def addSongs(songs, username, playlists):
         listArg = type(playlists) is list
         position = 0
@@ -205,8 +210,8 @@ class Playlist:
             if len(newTracks) > 0:
                 generator = Playlist.chunks(newTracks,100)
                 for tracks in generator:
-                    sp.user_playlist_add_tracks(username,playlists[0].playlistID, tracks, position)
-                    sp.user_playlist_add_tracks(username,playlists[1].playlistID, tracks, position)
+                    self.sp.user_playlist_add_tracks(username,playlists[0].playlistID, tracks, position)
+                    self.sp.user_playlist_add_tracks(username,playlists[1].playlistID, tracks, position)
             for playlist in playlists:
                 playlist.getPlaylistSongs();
             print( 'Added %d Songs To Playlist' % len(newTracks) )
@@ -220,42 +225,42 @@ class Playlist:
             if len(newTracks) > 0:
                 generator = Playlist.chunks(newTracks,100)
                 for tracks in generator:
-                    sp.user_playlist_add_tracks(username,playlists.playlistID, tracks, position)
+                    self.sp.user_playlist_add_tracks(username,playlists.playlistID, tracks, position)
             playlists.getPlaylistSongs();
             print( 'Added %d Songs To Playlist' % len(newTracks) )
             return len(newTracks)
 
     @staticmethod
-    def trimTracks(music): # Removes all duplicate artists from music
-        length = len(music)
+    def trimTracks(songs): # Removes all duplicate artists from songs
+        length = len(songs)
         i = 0
         while i < length :
             unique = True
-            searchTrack = music[i]
+            searchTrack = songs[i]
             x = i + 1
             while x < length:
-                compareTrack = music[x]
+                compareTrack = songs[x]
                 if type(compareTrack.artistID) is list:
                     increase = True
                     for artist in compareTrack.artistID:
                         if searchTrack.artistID== artist:
-                            music.remove(compareTrack)
-                            length = len(music)
+                            songs.remove(compareTrack)
+                            length = len(songs)
                             unique = False
                             increase = False
                     if increase:
                         x +=1
                 elif searchTrack.artistID == compareTrack.artistID:
-                    music.remove(compareTrack)
-                    length = len(music)
+                    songs.remove(compareTrack)
+                    length = len(songs)
                     unique = False
                 else: x += 1
             if not unique:
-                music.remove(searchTrack)
-                length = len(music)
+                songs.remove(searchTrack)
+                length = len(songs)
             else:
                 i += 1
-        return music
+        return songs
 
     @staticmethod
     def getPlaylistID(username, playlistName):
@@ -276,7 +281,7 @@ class Playlist:
                 if playlistName in playlistIDs:
                     return playlistIDs[playlistName]
 
-        response = sp.user_playlists(username)
+        response = self.sp.user_playlists(username)
         playlists = response['items']
         playlistID = []
         found = [] # Boolean list if playlist name was found
@@ -307,12 +312,12 @@ class Playlist:
         for f in found:
             if listArg:
                 if not f:
-                    newPlaylist = sp.user_playlist_create(username, playlistName[i], False)
+                    newPlaylist = self.sp.user_playlist_create(username, playlistName[i], False)
                     playlistID.append(newPlaylist['id'])
                     print( "Created Playlist: %s" % playlistName[i])
             else:
                 if not f:
-                    newPlaylist = sp.user_playlist_create(username, playlistName, False)
+                    newPlaylist = self.sp.user_playlist_create(username, playlistName, False)
                     playlistID = newPlaylist['id']
                     print ("Created Playlist: %s" % playlistName)
             i += 1
@@ -378,6 +383,7 @@ class Playlist:
             with open(fle, 'wb') as output:
                 pickle.dump(playlists, output, pickle.HIGHEST_PROTOCOL)
 
+    # Loads saved playlist from resources
     def loadPlaylist(self):
         directory = './resources'
         if not os.path.exists(directory):
@@ -398,10 +404,11 @@ class Playlist:
         for i in range(0, len(l), n):
             yield l[i:i+n]
 
+# Saved music for the user
 class SavedMusic(Playlist):
 
     def __init__(self, **args):
-        Playlist.__init__(self, username = args['username'])
+        Playlist.__init__(self,sp=args['sp'],  username = args['username'])
         load =  self.loadPlaylist()
         self.loadTracks(load, self.getSavedSongs)
         self.uniqueTracks = self.trimTracks(self.tracks)
@@ -412,109 +419,9 @@ class SavedMusic(Playlist):
         offset = 0
         hasNext = True
         while hasNext is not None:
-            response = sp.current_user_saved_tracks(limit, offset)
+            response = self.sp.current_user_saved_tracks(limit, offset)
             hasNext = response['next']
             tracks += self.setSongs(response)
             offset += limit
         self.tracks = tracks
         self.updateTime = datetime.datetime.now()
-
-def apiURL(newUser):
-    data = {'scope': 'playlist-modify-private playlist-read-private user-library-modify user-library-read',
-            'redirect_uri':'http://localhost:8888/callback',
-            'response_type':'code',
-            'client_id': '8ae602371cbf4a5db0686edc39461846',
-            'show_dialog': newUser
-            }
-
-    r = requests.get('https://accounts.spotify.com/authorize/', params=data)
-    return r.url
-
-def browser(url):
-    pass
-    # driver = webdriver.Firefox()
-    # driver.get(url)
-    # while url[:10] == driver.current_url[:10]: time.sleep(0.2)
-    # response = driver.current_url
-    # driver.quit()
-    # return response
-
-# Checks if username is already found
-def getUsername(username):
-    directory = './resources'
-    fle = directory + '/username.pkl'
-    sameUser = False
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    elif os.path.isfile(fle):
-        with open(fle, 'rb') as input:
-            prevUsername = pickle.load(input)
-        sameUser = username == prevUsername
-
-    pickle.dump(username, open( fle, "wb" ))
-
-    # with open(fle, 'wb') as output:
-    #     print(type(username))
-
-    return sameUser
-
-def getToken(outh):
-    print( 'Authenticating User')
-    url = apiURL(True)
-    webbrowser.open_new(url)
-    response = input('Enter url here: ')
-    code = outh.parse_response_code(response)
-    try:
-        return outh.get_access_token(code)['access_token']
-    except Exception as e:
-        return None
-
-
-sameUser = False
-scope = 'playlist-modify-private playlist-read-private user-library-modify user-library-read'
-clientID = '8ae602371cbf4a5db0686edc39461846'
-clientSecret = '4748666c10224174bb07af8750f2a2c0'
-redirectURL = 'http://localhost:8888/callback'
-outh = oauth2.SpotifyOAuth(clientID,clientSecret,redirectURL,scope=scope,cache_path='./resources/token')
-args = sys.argv[1:]
-token = None
-
-if len(sys.argv) > 1:
-    username = sys.argv[1]
-    sameUser = getUsername(username)
-else:
-    print( "Usage: %s username" % (sys.argv[0],))
-    sys.exit()
-
-for arg in args:
-    if arg == '-a':
-        token = getToken(outh)
-        sameUser = True
-
-
-if sameUser:
-    cached_token = outh.get_cached_token()
-    if cached_token:
-        token = cached_token['access_token']
-
-if not token:
-    token = getToken(outh)
-
-
-if token:
-    sp = spotipy.Spotify(auth=token)
-    Playlist.getPlaylistID(username, ['Discovery', 'Backup'])
-    playlistIDs = Playlist.loadIDs(username)
-    if not playlistIDs:
-        pass
-    else:
-        play = Playlist(username=username, playlistID = playlistIDs['Discovery'])
-        saved = SavedMusic(username=username)
-        backup = Playlist(username= username, playlistID = playlistIDs['Backup'])
-
-        Playlist.addSongs(saved.uniqueTracks, username, [play,backup])
-        play.savePlaylist()
-        saved.savePlaylist()
-        backup.savePlaylist()
-else:
-    print("Can't get token for", username)
