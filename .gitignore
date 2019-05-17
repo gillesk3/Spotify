@@ -1,1 +1,5 @@
 !resources/.gitkeep
+*__init__*
+Settings*
+*pyc
+*pkl

@@ -7,7 +7,7 @@ import spotipy
 import os
 import pickle
 import requests
-
+import webbrowser
 
 import spotipy.util as util
 import spotipy.oauth2 as oauth2
@@ -51,6 +51,7 @@ def getUsername(username):
 
     return sameUser
 
+# Gets access token from spotify
 def getToken(outh):
     print( 'Authenticating User')
     url = apiURL(True)
@@ -62,6 +63,7 @@ def getToken(outh):
     except Exception as e:
         return None
 
+# Gets cleint id from settings
 def getCliIDSecret():
     codes = ut.configSectionMap("Codes")
     try:
@@ -111,7 +113,7 @@ if not token:
 
 if token:
     sp = spotipy.Spotify(auth=token)
-    Playlist.getPlaylistID(username, ['Discovery', 'Backup'])
+    Playlist.getPlaylistID(sp,username, ['Discovery', 'Backup'])
     playlistIDs = Playlist.loadIDs(username)
     if not playlistIDs:
         pass
@@ -120,7 +122,7 @@ if token:
         saved = SavedMusic(sp=sp, username=username)
         backup = Playlist(sp=sp, username= username, playlistID = playlistIDs['Backup'])
         #
-        Playlist.addSongs(saved.uniqueTracks, username, [play,backup])
+        Playlist.addSongs(sp,saved.uniqueTracks, username, [play,backup])
         play.savePlaylist()
         saved.savePlaylist()
         backup.savePlaylist()

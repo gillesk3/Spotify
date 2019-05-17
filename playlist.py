@@ -107,24 +107,25 @@ class Playlist:
     trackFields = 'next, items(track(name, id, artists(name,id), album(id, name)))'
     tracks = []
     cacheTime = 12
+    directory = './resources/'
 
     def __init__(self,**args):
         self.username = args['username']
         self.sp = args['sp']
         if 'playlistID' in args:
             self.playlistID = args['playlistID']
-            self.fle = './resources/' + self.playlistID + '.pkl'
+            self.fle = self.directory + self.playlistID + '.pkl'
             load =  self.loadPlaylist()
             self.loadTracks(load, self.getPlaylistSongs)
         elif 'playlistName' in args:
             self.playlistName = args['playlistName']
             self.playlistID = self.getPlaylistID(self.username, self.playlistName)
-            self.fle = './resources/' + self.playlistID + '.pkl'
+            self.fle = self.directory + self.playlistID + '.pkl'
             print('Playlist ID is: %s' % self.playlistID)
         else:
             self.playlistID = 'SavedMusic'
             self.playListName = 'Saved Music'
-            self.fle = './resources/' + self.playlistID + '.pkl'
+            self.fle = self.directory + self.playlistID + '.pkl'
 
     def __len__(self):
         return len(self.tracks)
@@ -197,7 +198,7 @@ class Playlist:
 
     #  Adds all songs to two playlist, second playlist is to keep a backup so as not to readd songs the user removed
     # @staticmethod
-    def addSongs(songs, username, playlists):
+    def addSongs(sp,songs, username, playlists):
         listArg = type(playlists) is list
         position = 0
         if listArg:
@@ -210,8 +211,8 @@ class Playlist:
             if len(newTracks) > 0:
                 generator = Playlist.chunks(newTracks,100)
                 for tracks in generator:
-                    self.sp.user_playlist_add_tracks(username,playlists[0].playlistID, tracks, position)
-                    self.sp.user_playlist_add_tracks(username,playlists[1].playlistID, tracks, position)
+                    sp.user_playlist_add_tracks(username,playlists[0].playlistID, tracks, position)
+                    sp.user_playlist_add_tracks(username,playlists[1].playlistID, tracks, position)
             for playlist in playlists:
                 playlist.getPlaylistSongs();
             print( 'Added %d Songs To Playlist' % len(newTracks) )
@@ -263,7 +264,7 @@ class Playlist:
         return songs
 
     @staticmethod
-    def getPlaylistID(username, playlistName):
+    def getPlaylistID(sp,username, playlistName):
         playlistIDs = Playlist.loadIDs(username)
         if playlistIDs:
             if type(playlistName) is list:
@@ -281,7 +282,7 @@ class Playlist:
                 if playlistName in playlistIDs:
                     return playlistIDs[playlistName]
 
-        response = self.sp.user_playlists(username)
+        response = sp.user_playlists(username)
         playlists = response['items']
         playlistID = []
         found = [] # Boolean list if playlist name was found
@@ -312,12 +313,12 @@ class Playlist:
         for f in found:
             if listArg:
                 if not f:
-                    newPlaylist = self.sp.user_playlist_create(username, playlistName[i], False)
+                    newPlaylist = sp.user_playlist_create(username, playlistName[i], False)
                     playlistID.append(newPlaylist['id'])
                     print( "Created Playlist: %s" % playlistName[i])
             else:
                 if not f:
-                    newPlaylist = self.sp.user_playlist_create(username, playlistName, False)
+                    newPlaylist = sp.user_playlist_create(username, playlistName, False)
                     playlistID = newPlaylist['id']
                     print ("Created Playlist: %s" % playlistName)
             i += 1
@@ -331,10 +332,10 @@ class Playlist:
 
     @staticmethod
     def loadIDs(username):
-        directory = './resources'
-        fle = directory + '/%sIDs.pkl' % username
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+
+        fle = Playlist.directory + '/%sIDs.pkl' % username
+        if not os.path.exists(Playlist.directory):
+            os.makedirs(Playlist.directory)
             return False
         elif os.path.isfile(fle):
             with open(fle, 'rb') as input:
@@ -344,11 +345,11 @@ class Playlist:
 
     @staticmethod
     def saveIDs(username, playlistIDs):
-        directory = './resources'
-        fle = directory + '/%sIDs.pkl' % username
+
+        fle = Playlist.directory + '/%sIDs.pkl' % username
         temp = None
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+        if not os.path.exists(Playlist.directory):
+            os.makedirs(Playlist.directory)
         if os.path.isfile(fle):
             with open(fle, 'rb') as input:
                 temp = pickle.load(input)
@@ -360,8 +361,8 @@ class Playlist:
 
     @staticmethod
     def removeIDs(username, playlistName):
-        directory = './resources'
-        fle = directory + '/%sIDs.pkl' % username
+
+        fle = Playlist.directory + '/%sIDs.pkl' % username
         if not os.path.isfile(fle):
             return False
         if type(playlistName) is list:
@@ -385,9 +386,9 @@ class Playlist:
 
     # Loads saved playlist from resources
     def loadPlaylist(self):
-        directory = './resources'
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+
+        if not os.path.exists(self.directory):
+            os.makedirs(self.directory)
         if os.path.isfile(self.fle):
             with open(self.fle, 'rb') as input:
                 playlist = pickle.load(input)

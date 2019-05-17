@@ -5,7 +5,7 @@ from math import radians, cos, sin, asin, sqrt
 
 
 Config = configparser.ConfigParser()
-Config.read("./resources/Settings.ini")
+Config.read("./Settings.ini")
 
 
 #Checks if folder exists and creates one if not found
@@ -58,7 +58,12 @@ def moveFile(path, dst):
 #Used to get a value from settings file
 def configSectionMap(section):
     tmp = {}
-    options = Config.options(section)
+    options = None
+    try:
+        options = Config.options(section)
+    except Exception as e:
+        print("Could not find section %s" % section)
+
     for option in options:
         try:
             tmp[option] = Config.get(section, option)
