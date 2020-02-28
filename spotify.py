@@ -16,7 +16,7 @@ def apiURL(newUser):
     data = {'scope': 'playlist-modify-private playlist-read-private user-library-modify user-library-read',
             'redirect_uri':'http://localhost:8888/callback',
             'response_type':'code',
-            'client_id': '8ae602371cbf4a5db0686edc39461846',
+            'client_id': '',
             'show_dialog': newUser
             }
 
